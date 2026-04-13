@@ -1,0 +1,72 @@
+name: Docker
+
+on:
+  push:
+    branches: [master, develop]
+    tags: ["v*"]
+  pull_request:
+    branches: [master, develop]
+
+jobs:
+  build-push:
+    name: Build and push
+    runs-on: ubuntu-latest
+    concurrency:
+      group: docker-${{ github.ref }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Derive the container registry from the forge URL so this workflow runs
+      # unchanged on both GitHub (ghcr.io) and Forgejo (same host as git).
+      - name: Determine registry
+        id: registry
+        env:
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          if [ "$SERVER_URL" = "https://github.com" ]; then
+            echo "host=ghcr.io" >> "$GITHUB_OUTPUT"
+          else
+            echo "host=${SERVER_URL#https://}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Image tags and labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.registry.outputs.host }}/${{ github.repository }}
+          tags: |
+            # branch name on branch pushes (master, develop)
+            type=ref,event=branch
+            # pr-<number> for pull request previews
+            type=ref,event=pr
+            # v1.2.3 and 1.2 on semver tags
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            # short SHA on every build
+            type=sha,prefix=sha-,format=short
+            # latest only on master
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
+
+      - name: Login to registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ steps.registry.outputs.host }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

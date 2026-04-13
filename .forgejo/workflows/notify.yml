@@ -1,0 +1,18 @@
+name: Notify
+
+# Runs after the Docker workflow completes — Forgejo only.
+# This file lives in .forgejo/workflows/ so GitHub never sees it.
+on:
+  workflow_run:
+    workflows: [Docker]
+    types: [completed]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: https://git.kuhree.com/kuhree/actions-ntfy@v1
+        with:
+          url: ${{ vars.NTFY_URL }}
+          status: ${{ github.event.workflow_run.conclusion }}
+          title: SATISFACTORY-ARCHITECT DOCKER
