@@ -2,3 +2,6 @@
 *.sqlite
 *.sqlite-journal
 .vite
+
+# Nix
+.direnv/

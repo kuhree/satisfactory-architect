@@ -1,0 +1,26 @@
+services:
+  app:
+    build: .
+    ports:
+      - "80:80"
+    volumes:
+      - data:/data
+    restart: unless-stopped
+    # Override DATABASE_PATH to switch storage modes:
+    #   persisted (default): /data/db.sqlite  — backed by the db-data volume
+    #   in-memory:           DATABASE_PATH=:memory:  — remove the volume too
+    # environment:
+    #   - DATABASE_PATH=:memory:
+    #
+    # Any extra server flags (see `deno run src/main.ts --help`) can be
+    # appended in start-server.sh or set via environment variables that
+    # start-server.sh forwards (SERVER_PORT, etc.).
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  data:
